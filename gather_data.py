@@ -214,16 +214,22 @@ def parse_election_results(html_content):
     for row in table.find('tbody').find_all('tr'):
         cols = row.find_all('td')
         # Extract text from each cell and strip whitespace
-        row_data = [ele.get_text(strip=True) for ele in cols]
+        row_data = [ele.get_text(strip=True).replace(',', '') for ele in cols]
+        
         if row_data[0] == "":
             row_data[0] = last_town_name
         else:
             last_town_name = row_data[0]
+        
+        if row_data[0] in ["합계"]: continue
+        if row_data[1] in ["소계"]: continue
+        
         row_data = [page_city_name, page_town_name] + row_data
+        
         table_data.append(row_data)
 
     # Create a Pandas DataFrame
-    df = pd.DataFrame(table_data, columns=final_headers)
+    # df = pd.DataFrame(table_data, columns=final_headers)
 
     # Filter out summary rows like '합계', '거소·선상투표', '관외사전투표', '재외투표', '잘못 투입·구분된 투표지'
     # and also '소계' rows for each town.
@@ -274,7 +280,17 @@ def fetch_csv(data_path="./data/vote.csv"):
             else:
                 df = pd.concat([df, df_item])
         
+        candidates = ["더불어민주당이재명", "국민의힘김문수", "개혁신당이준석", "민주노동당권영국", "무소속송진호"]
+        for cand in ["계"] + candidates:
+            df[cand] = pd.to_numeric(df[cand], errors='coerce')
+        df.fillna(0, inplace=True)
+        
+        for cand in candidates:
+            df[cand + '_지지율'] = df[cand] / df['계'] * 100
+        df.fillna(0, inplace=True)
+        
         df.to_csv(data_path)
+    
     return df
 
 def main():
